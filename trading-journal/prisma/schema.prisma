@@ -1,0 +1,113 @@
+// Prisma schema for the Trading Journal application.
+// Default datasource is PostgreSQL (works great with free tiers like Neon or Supabase).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Direction {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  WIN
+  LOSS
+  BREAKEVEN
+  OPEN
+}
+
+// Category key for user-customizable dropdown lists
+enum OptionCategory {
+  PAIR
+  TIMEFRAME
+  SESSION
+  STRATEGY
+  MARKET_CONDITION
+  EMOTION
+  MISTAKE
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  startingBalance Float   @default(10000)
+  theme         String    @default("dark") // "dark" | "light"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  trades        Trade[]
+  customOptions CustomOption[]
+  resetTokens   PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// User-defined additions to dropdown lists (pairs, strategies, sessions, etc.)
+model CustomOption {
+  id       String         @id @default(uuid())
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category OptionCategory
+  value    String
+  createdAt DateTime      @default(now())
+
+  @@unique([userId, category, value])
+  @@index([userId, category])
+}
+
+model Trade {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Core trade data
+  dateTime  DateTime
+  pair      String
+  direction Direction
+  entryPrice Float
+  stopLoss   Float?
+  takeProfit Float?
+  exitPrice  Float?
+  lotSize    Float
+  riskPercent Float?
+  profitLoss  Float       @default(0)
+
+  // Classification
+  timeframe       String?
+  session         String?
+  strategy        String?
+  marketCondition String?
+  status          TradeStatus @default(OPEN)
+
+  // Psychology / journal
+  notes          String?
+  mistakes       String?
+  lessons        String?
+  emotions       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, dateTime])
+  @@index([userId, pair])
+  @@index([userId, strategy])
+  @@index([userId, status])
+}
